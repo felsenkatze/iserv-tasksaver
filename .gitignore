@@ -1,3 +1,4 @@
 credentials.json
 .venv/**
-downloaded-tasks.csv
+tasklist.html
+taskpage.html
