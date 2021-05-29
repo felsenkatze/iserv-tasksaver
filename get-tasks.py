@@ -51,6 +51,22 @@ class taskpage:
         self.start = pd.to_datetime(self.start).strftime('%Y%m%dT%H%M%SZ')
         self.end = pd.to_datetime(self.end).strftime('%Y%m%dT%H%M%SZ')
 
+    def publish(self, now, tasklist):
+        # create caldav data for task
+        created = "\nCREATED:" + str(now)
+        # last-modified = "LAST-MODIFIED:" + str(now)
+        dtstamp = "\nDTSTAMP:" + str(now)
+        dtstart = "\nDTSTART;VALUE=DATE:" + str(self.start)
+        due = "\nDUE;VALUE=DATE:" + str(self.end)
+        summary = "\nSUMMARY:" + str(self.summary)
+        description = "\nDESCRIPTION:" + str(self.description)
+        uid = "\nUID:" + str(hash(self.start + summary))
+        # priority = "PRIORITY:" + '1'
+        caldav_data = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VTODO" + dtstart + created + dtstamp + summary + due + uid + description + "\nEND:VTODO\nEND:VCALENDAR"
+
+        # save to caldav server
+        tasklist.add_todo(caldav_data)
+
     # instance attribute
     def __init__(self, url) -> None:
         self.url = url
@@ -109,18 +125,6 @@ with open('tasklist.html', 'r') as f:
             target_links.append(target)
 
 
-def create_task(start='', end='', summary='', now='', description=''):
-    created = "\nCREATED:" + str(now)
-    # last-modified = "LAST-MODIFIED:" + str(now)
-    dtstamp = "\nDTSTAMP:" + str(now)
-    dtstart = "\nDTSTART;VALUE=DATE:" + str(start)
-    due = "\nDUE;VALUE=DATE:" + str(end)
-    summary = "\nSUMMARY:" + str(summary)
-    description = "\nDESCRIPTION:" + str(description)
-    uid = "\nUID:" + str(hash(start + summary))
-    # priority = "PRIORITY:" + '1'
-    return "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VTODO" + dtstart + created + dtstamp + summary + due + uid + description + "\nEND:VTODO\nEND:VCALENDAR"
-
 # check if task exists, based on title
 def task_is_inexistent(summary, start, tasks):
     for task in tasks:
@@ -161,9 +165,7 @@ for target in target_links:
     # test if task is already present
     if task_is_inexistent(task.summary, task.start, tasks):
         # create the new task
-        caldav_task = create_task(start=task.start, end=task.end, summary=task.summary,
-                           now=now, description=task.description)
-        tasklist.add_todo(caldav_task)
+        task.publish(now, tasklist)
         print("Task added (" + task.summary + ")")
     else:
         print("Task already exists (" + task.summary + ")")
