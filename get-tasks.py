@@ -8,6 +8,58 @@ from datetime import datetime
 import json
 import pandas as pd
 
+
+class taskpage:
+    # function to get taskpage content and save it to 'content'
+    def extract_task_data(self):
+        # download and save task page
+        output = br.open(self.url)
+        self.content = output.read().decode("utf-8")
+
+        # extract data
+        # returns summary, description, start, end
+        soup = BeautifulSoup(self.content, features='html.parser')
+
+        # save rows of description
+        description_html = []
+        description = ""
+        div = soup.find_all(class_='text-break-word p-3')
+        for div in soup.find_all(class_='text-break-word p-3'):
+            for p in div.find_all('p'):
+                description_html.append(p.get_text())
+        for line in description_html:
+            description += "\\n" + line
+        self.description = description
+
+        # extract start and end time from table
+        table_of_time = soup.find(class_='bb0').find_all('tr')
+        self.start = table_of_time[1].find('td').get_text()
+        self.end = table_of_time[2].find('td').get_text()
+
+        # get summary from title
+        # remove trailing 'Details for'
+        self.summary = soup.find('h1').get_text()[len('Details for '):]
+
+    # escape special characters
+    def escape_chars(self):
+        # ',' causes errors, therefore replace it with '\\,'
+        self.summary.replace(',', '\\,')
+        self.description.replace(',', '\\,')
+
+    def adjust_time(self):
+        # convert date time format for caldav
+        self.start = pd.to_datetime(self.start).strftime('%Y%m%dT%H%M%SZ')
+        self.end = pd.to_datetime(self.end).strftime('%Y%m%dT%H%M%SZ')
+
+    # instance attribute
+    def __init__(self, url) -> None:
+        self.url = url
+        self.start = None
+        self.end = None
+        self.summary = None
+        self.description = None
+
+
 # load credentials from file
 credentials_file = json.loads(open('credentials.json').read())
 
@@ -57,40 +109,6 @@ with open('tasklist.html', 'r') as f:
             target_links.append(target)
 
 
-def extract_task_data(url):
-    # download task page
-    with open('taskpage.html', 'w') as output_file:
-        output = br.open(target)
-        output_file.write(output.read().decode("utf-8"))
-
-    # extract data
-    # returns summary, description, start, end
-    with open('taskpage.html', 'r') as f:
-        content = f.read()
-        soup = BeautifulSoup(content, features='html.parser')
-
-        # save rows of description
-        description_html = []
-        description = ""
-        div = soup.find_all(class_='text-break-word p-3')
-        for div in soup.find_all(class_='text-break-word p-3'):
-            for p in div.find_all('p'):
-                description_html.append(p.get_text())
-        for line in description_html:
-            description += "\\n" + line
-
-        # extract start and end time from table
-        table_of_time = soup.find(class_='bb0').find_all('tr')
-        start = table_of_time[1].find('td').get_text()
-        end = table_of_time[2].find('td').get_text()
-
-        # get summary from title
-        # remove trailing 'Details for'
-        summary = soup.find('h1').get_text()[len('Details for '):]
-
-        return summary, description, start, end
-
-
 def create_task(start='', end='', summary='', now='', description=''):
     created = "\nCREATED:" + str(now)
     # last-modified = "LAST-MODIFIED:" + str(now)
@@ -135,20 +153,17 @@ for target in target_links:
     now = datetime.now()
     now = now.strftime("%Y%m%dT%H%M%SZ")
 
-    summary, description, start, end = extract_task_data(target)
-
-    start = pd.to_datetime(start).strftime('%Y%m%dT%H%M%SZ')
-    end = pd.to_datetime(end).strftime('%Y%m%dT%H%M%SZ')
-
-    # ',' causes errors, therefore replace it with '\\,'
-    summary = summary.replace(',', '\\,')
-    description = description.replace(',', '\\,')
+    task = taskpage(target)
+    task.extract_task_data()
+    task.escape_chars()
+    task.adjust_time()
 
     # test if task is already present
-    if task_is_inexistent(summary, start, tasks):
+    if task_is_inexistent(task.summary, task.start, tasks):
         # create the new task
-        task = create_task(start=start, end=end, summary=summary, now=now, description=description)
-        tasklist.add_todo(task)
-        print("Task added (" + summary + ")")
+        caldav_task = create_task(start=task.start, end=task.end, summary=task.summary,
+                           now=now, description=task.description)
+        tasklist.add_todo(caldav_task)
+        print("Task added (" + task.summary + ")")
     else:
-        print("Task already exists (" + summary + ")")
+        print("Task already exists (" + task.summary + ")")
