@@ -45,6 +45,7 @@ class taskpage:
         # ',' causes errors, therefore replace it with '\\,'
         self.summary.replace(',', '\\,')
         self.description.replace(',', '\\,')
+        # TODO: somehow not escaping
 
     def adjust_time(self):
         # convert date time format for caldav
@@ -66,6 +67,16 @@ class taskpage:
 
         # save to caldav server
         tasklist.add_todo(caldav_data)
+
+    def is_inexistent(self, tasks):
+        for task in tasks:
+            if task.vobject_instance.vtodo.summary.value == self.summary:
+                # TODO
+                # add something like this to check if the var for start time is the same
+                # and task.vobject_instance.vtodo.start.value == start
+                # or maybe with url
+                return False
+        return True
 
     # instance attribute
     def __init__(self, url) -> None:
@@ -125,18 +136,6 @@ with open('tasklist.html', 'r') as f:
             target_links.append(target)
 
 
-# check if task exists, based on title
-def task_is_inexistent(summary, start, tasks):
-    for task in tasks:
-        if task.vobject_instance.vtodo.summary.value == summary:
-            # TODO
-            # add something like this to check if the var for start time is the same
-            # and task.vobject_instance.vtodo.start.value == start
-            # or maybe with url
-            return False
-    return True
-
-
 # Connection to school server
 client = caldav.DAVClient(url=credentials_file['url'],
                           username=credentials_file['username'], password=credentials_file['password'])
@@ -163,7 +162,7 @@ for target in target_links:
     task.adjust_time()
 
     # test if task is already present
-    if task_is_inexistent(task.summary, task.start, tasks):
+    if task.is_inexistent(tasks):
         # create the new task
         task.publish(now, tasklist)
         print("Task added (" + task.summary + ")")
