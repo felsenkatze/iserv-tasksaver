@@ -1,3 +1,5 @@
+# Archived as it no longer works
+
 # Iserv Tasksaver
 
 A small python script to download task data from the school server Iserv and save it to the internal caldav server of it so the data can be viewed by any CalDAV compatible client.
